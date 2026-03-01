@@ -1,4 +1,8 @@
 import College from "../../models/College.js";
+import FacultyEmploymentHistory from "../../models/FacultyEmploymentHistory.js";
+import FacultyProfile from "../../models/FacultyProfile.js";
+import User from "../../models/User.js";
+import createUserWithToken from "../../utils/createUser.js";
 
 /* ======================================
    GET COURSES
@@ -181,4 +185,169 @@ export const updateCollegeProfileService = async (
   await college.save();
 
   return college;
+};
+
+
+export const getCollegeFacultyService = async (user) => {
+  const collegeId = user.referenceId;
+
+  const faculty = await FacultyProfile.find({
+    college: collegeId,
+    status: "active"
+  })
+    .populate("user", "email")
+    .lean();
+
+  return faculty;
+};
+
+export const updateCollegeFacultyService = async (
+  user,
+  facultyId,
+  body
+) => {
+
+  const collegeId = user.referenceId;
+
+  const faculty = await FacultyProfile.findOne({
+    _id: facultyId,
+    college: collegeId
+  });
+
+  if (!faculty) {
+    throw new Error("Faculty not found");
+  }
+
+
+  const allowedFields = [
+    "courseName",
+    "department",   // ✅ correct field
+    "designation",
+    "employeeId",
+    "joiningYear"
+  ];
+
+
+  let academicChanged = false;
+
+
+  allowedFields.forEach((field) => {
+
+    if (body[field] !== undefined) {
+
+      if (faculty[field] !== body[field]) {
+        faculty[field] = body[field];
+
+        if (["courseName", "specialization", "designation"].includes(field)) {
+          academicChanged = true;
+        }
+      }
+    }
+  });
+
+
+  await faculty.save();
+
+
+  // =============================
+  // UPDATE EMPLOYMENT HISTORY SNAPSHOT
+  // =============================
+
+  if (academicChanged) {
+
+    await FacultyEmploymentHistory.updateOne(
+      {
+        faculty: facultyId,
+        status: "active"
+      },
+      {
+        courseName: faculty.courseName,
+        specialization: faculty.department,
+        designation: faculty.designation
+      }
+    );
+  }
+
+
+  return faculty;
+};
+
+
+export const removeFacultyFromCollegeService = async (
+  user,
+  facultyId
+) => {
+
+  const collegeId = user.referenceId;
+  const adminId = user._id;
+
+  const faculty = await FacultyProfile.findOne({
+    _id: facultyId,
+    college: collegeId
+  });
+
+  if (!faculty) {
+    throw new Error("Faculty not found");
+  }
+
+  // =============================
+  // END EMPLOYMENT HISTORY
+  // =============================
+
+  const history = await FacultyEmploymentHistory.findOne({
+    faculty: facultyId,
+    status: "active"
+  });
+
+  if (history) {
+    history.endDate = new Date();
+    history.status = "ended";
+    history.endedBy = adminId;
+    await history.save();
+  }
+
+
+  // =============================
+  // CLEAR FACULTY DATA
+  // =============================
+
+  faculty.college = null;
+  faculty.courseName = null;
+  faculty.department = null;
+  faculty.specialization = null;
+  faculty.designation = null;
+  faculty.employeeId = null;
+  faculty.joiningYear = null;
+  faculty.status = "unassigned";
+
+  await faculty.save();
+
+
+  // =============================
+  // UPDATE USER (DISABLE LOGIN)
+  // =============================
+
+  const userDoc = await User.findById(faculty.user);
+
+  if (userDoc) {
+
+    userDoc.password = null;
+    userDoc.isRegistered = false;
+    userDoc.isVerified = false;
+
+    // create fresh setup token
+    const { rawToken } = await createUserWithToken({
+      email: userDoc.email,
+      role: "faculty",
+      referenceModel: "FacultyProfile",
+      createdBy: adminId
+    });
+
+    userDoc.passwordSetupToken =
+      userDoc.passwordSetupToken; // already set by util
+
+    await userDoc.save();
+  }
+
+  return { success: true };
 };

@@ -10,11 +10,19 @@ import createUserWithToken from "../../utils/createUser.js";
 import sendEmail from "../../utils/sendEmail.js";
 import { uploadToCloudinary } from "../../utils/uploadToCloudinary.js";
 
+import FacultyEmploymentHistory from "../../models/FacultyEmploymentHistory.js";
+import MentorEmploymentHistory from "../../models/MentorEmploymentHistory.js";
+import StudentAcademicHistory from "../../models/StudentAcademicHistory.js";
+
+
 /* ======================================================
    INVITE STUDENT
 ====================================================== */
 
+
+
 export const inviteStudentService = async (body, creator) => {
+
   const {
     email,
     fullName,
@@ -28,22 +36,146 @@ export const inviteStudentService = async (body, creator) => {
     throw new Error("Email and full name required");
   }
 
-  const collegeId = creator.referenceId;
+  // =====================================================
+  // RESOLVE COLLEGE ID FROM CREATOR
+  // =====================================================
+
+  let collegeId = null;
+
+  if (creator.role === "college") {
+    collegeId = creator.referenceId;
+  }
+
+  else if (creator.role === "faculty") {
+
+    const faculty = await FacultyProfile.findById(creator.referenceId);
+
+    if (!faculty) {
+      throw new Error("Faculty profile not found");
+    }
+
+    collegeId = faculty.college;
+  }
+
+  else if (creator.role === "admin") {
+    throw new Error("Admin cannot directly invite student without college");
+  }
+
+  if (!collegeId) {
+    throw new Error("College not resolved");
+  }
+
+  // =====================================================
+  // TRANSACTION
+  // =====================================================
 
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    const { user, rawToken } = await createUserWithToken({
-      email,
-      role: "student",
-      referenceModel: "StudentProfile",
-      createdBy: creator._id
-    });
 
-    const profile = await StudentProfile.create(
-      [
+    let user;
+    let studentProfile;
+    let rawToken = null;
+    let isNewUser = false;
+
+    // =====================================================
+    // CHECK USER
+    // =====================================================
+
+    user = await User.findOne({ email }).session(session);
+
+    // =====================================================
+    // USER EXISTS
+    // =====================================================
+
+    if (user) {
+
+      if (user.role !== "student") {
+        throw new Error("User already exists with different role");
+      }
+
+      const result = await createUserWithToken(
         {
+          email,
+          role: "student",
+          referenceModel: "StudentProfile",
+          createdBy: creator._id
+        },
+        session
+      );
+
+      rawToken = result.rawToken;
+      user = result.user;
+
+      if (user.referenceId) {
+        studentProfile = await StudentProfile
+          .findById(user.referenceId)
+          .session(session);
+      }
+
+      // SELF HEAL PROFILE
+      if (!studentProfile) {
+
+        const profile = await StudentProfile.create(
+          [{
+            user: user._id,
+            fullName,
+            college: collegeId,
+            courseName,
+            specialization,
+            courseStartYear,
+            courseEndYear,
+            status: "active",
+            profileStatus: "pending",
+            createdBy: creator._id
+          }],
+          { session }
+        );
+
+        studentProfile = profile[0];
+
+        user.referenceId = studentProfile._id;
+        await user.save({ session });
+
+      } else {
+
+        // REASSIGN
+        studentProfile.college = collegeId;
+        studentProfile.courseName = courseName;
+        studentProfile.specialization = specialization;
+        studentProfile.courseStartYear = courseStartYear;
+        studentProfile.courseEndYear = courseEndYear;
+        studentProfile.status = "active";
+
+        await studentProfile.save({ session });
+      }
+
+    }
+
+    // =====================================================
+    // NEW USER
+    // =====================================================
+
+    else {
+
+      isNewUser = true;
+
+      const result = await createUserWithToken(
+        {
+          email,
+          role: "student",
+          referenceModel: "StudentProfile",
+          createdBy: creator._id
+        },
+        session
+      );
+
+      user = result.user;
+      rawToken = result.rawToken;
+
+      const profile = await StudentProfile.create(
+        [{
           user: user._id,
           fullName,
           college: collegeId,
@@ -51,41 +183,100 @@ export const inviteStudentService = async (body, creator) => {
           specialization,
           courseStartYear,
           courseEndYear,
+          status: "active",
           profileStatus: "pending",
           createdBy: creator._id
-        }
-      ],
+        }],
+        { session }
+      );
+
+      studentProfile = profile[0];
+
+      user.referenceId = studentProfile._id;
+      await user.save({ session });
+    }
+
+    // =====================================================
+    // ACADEMIC HISTORY
+    // =====================================================
+
+    await StudentAcademicHistory.create(
+      [{
+        student: studentProfile._id,
+        college: collegeId,
+        courseName,
+        specialization,
+        startDate: new Date(),
+        status: "active",
+        addedBy: creator._id
+      }],
       { session }
     );
 
-    user.referenceId = profile[0]._id;
-    await user.save({ session });
-
     await session.commitTransaction();
+    session.endSession();
 
-    const link =
+    // =====================================================
+    // EMAIL
+    // =====================================================
+
+    const setupLink =
       `${process.env.FRONTEND_URL}/setup-account?token=${rawToken}`;
 
-    await sendEmail({
-      to: email,
-      subject: "Student Account Invitation",
-      html: `<p>Setup your account:</p><a href="${link}">${link}</a>`
-    });
+    if (isNewUser) {
 
-    return profile[0];
+      await sendEmail({
+        to: email,
+        subject: "Student Account Invitation",
+        html: `
+          <p>You have been invited as Student.</p>
+          <p>Set your password using the link below:</p>
+          <a href="${setupLink}">${setupLink}</a>
+        `
+      });
+
+    } else {
+
+      await sendEmail({
+        to: email,
+        subject: "College Assignment Updated",
+        html: `
+          <p>You have been assigned to a college in InternStatus.</p>
+          <p>Please complete setup using the link below:</p>
+          <a href="${setupLink}">${setupLink}</a>
+        `
+      });
+
+    }
+
+    return studentProfile;
 
   } catch (err) {
+
     await session.abortTransaction();
+    session.endSession();
     throw err;
   }
 };
 
+
 /* ======================================================
-   INVITE FACULTY
+   INVITE FACULTY  (WITH EMPLOYMENT HISTORY)
 ====================================================== */
 
 export const inviteFacultyService = async (body, creator) => {
-  const { email, fullName, courseName, specialization, designation } = body;
+
+  const {
+    email,
+    fullName,
+    courseName,
+    specialization,
+    designation
+  } = body;
+
+  if (!email || !fullName) {
+    throw new Error("Email and full name required");
+  }
 
   const collegeId = creator.referenceId;
 
@@ -93,50 +284,205 @@ export const inviteFacultyService = async (body, creator) => {
   session.startTransaction();
 
   try {
-    const { user, rawToken } = await createUserWithToken({
-      email,
-      role: "faculty",
-      referenceModel: "FacultyProfile",
-      createdBy: creator._id
-    });
 
-    const profile = await FacultyProfile.create(
-      [
+    let user;
+    let facultyProfile;
+    let rawToken = null;
+    let isNewUser = false;
+
+
+    // =====================================================
+    // CHECK USER
+    // =====================================================
+
+    user = await User.findOne({ email }).session(session);
+
+
+    // =====================================================
+    // USER EXISTS
+    // =====================================================
+
+    if (user) {
+
+      if (user.role !== "faculty") {
+        throw new Error("User already exists with different role");
+      }
+
+      // regenerate setup token for reassignment
+      const result = await createUserWithToken(
         {
+          email,
+          role: "faculty",
+          referenceModel: "FacultyProfile",
+          createdBy: creator._id
+        },
+        session
+      );
+
+      rawToken = result.rawToken;
+      user = result.user;
+
+
+      // Try load profile
+      if (user.referenceId) {
+        facultyProfile = await FacultyProfile
+          .findById(user.referenceId)
+          .session(session);
+      }
+
+      // SELF HEAL PROFILE IF MISSING
+      if (!facultyProfile) {
+
+        const profile = await FacultyProfile.create(
+          [{
+            user: user._id,
+            fullName,
+            college: collegeId,
+            courseName,
+            department : specialization,
+            designation,
+            status: "active",
+            profileStatus: "pending",
+            createdBy: creator._id
+          }],
+          { session }
+        );
+
+        facultyProfile = profile[0];
+
+        user.referenceId = facultyProfile._id;
+        await user.save({ session });
+
+      } else {
+
+        // Reassign existing faculty
+        facultyProfile.college = collegeId;
+        facultyProfile.courseName = courseName;
+        facultyProfile.department = specialization;
+        facultyProfile.designation = designation;
+        facultyProfile.status = "active";
+
+        await facultyProfile.save({ session });
+      }
+
+    }
+
+
+    // =====================================================
+    // NEW USER
+    // =====================================================
+
+    else {
+
+      isNewUser = true;
+
+      const result = await createUserWithToken(
+        {
+          email,
+          role: "faculty",
+          referenceModel: "FacultyProfile",
+          createdBy: creator._id
+        },
+        session
+      );
+
+      user = result.user;
+      rawToken = result.rawToken;
+
+      const profile = await FacultyProfile.create(
+        [{
           user: user._id,
           fullName,
           college: collegeId,
           courseName,
-          specialization,
+          department : specialization,
           designation,
+          status: "active",
           profileStatus: "pending",
           createdBy: creator._id
-        }
-      ],
+        }],
+        { session }
+      );
+
+      facultyProfile = profile[0];
+
+      user.referenceId = facultyProfile._id;
+      await user.save({ session });
+    }
+
+
+    // =====================================================
+    // EMPLOYMENT HISTORY
+    // =====================================================
+
+    await FacultyEmploymentHistory.create(
+      [{
+        faculty: facultyProfile._id,
+        college: collegeId,
+        courseName,
+        department : specialization,
+        designation,
+        startDate: new Date(),
+        status: "active",
+        addedBy: creator._id
+      }],
       { session }
     );
 
-    user.referenceId = profile[0]._id;
-    await user.save({ session });
 
     await session.commitTransaction();
+    session.endSession();
 
-    const link =
+
+    // =====================================================
+    // EMAIL
+    // =====================================================
+
+    const setupLink =
       `${process.env.FRONTEND_URL}/setup-account?token=${rawToken}`;
 
-    await sendEmail({
-      to: email,
-      subject: "Faculty Account Invitation",
-      html: `<p>Setup your account:</p><a href="${link}">${link}</a>`
-    });
+    if (isNewUser) {
 
-    return profile[0];
+      await sendEmail({
+        to: email,
+        subject: "Faculty Account Invitation",
+        html: `
+          <p>You have been invited as Faculty.</p>
+          <p>Please set your password using the link below:</p>
+          <a href="${setupLink}">${setupLink}</a>
+        `
+      });
+
+    } else {
+
+      await sendEmail({
+        to: email,
+        subject: "College Assignment Updated",
+        html: `
+          <p>You have been assigned to a college in InternStatus.</p>
+          <p>Please complete your setup using the link below:</p>
+          <a href="${setupLink}">${setupLink}</a>
+        `
+      });
+
+    }
+
+
+    return facultyProfile;
 
   } catch (err) {
+
     await session.abortTransaction();
+    session.endSession();
     throw err;
   }
 };
+
+
+
+/* ======================================================
+   INVITE MENTOR  (WITH EMPLOYMENT HISTORY)
+====================================================== */
 
 export const inviteMentorService = async (body, creator) => {
 
@@ -154,29 +500,101 @@ export const inviteMentorService = async (body, creator) => {
 
   const companyId = creator.referenceId;
 
-  if (!companyId) {
-    throw new Error("Invalid company context");
-  }
-
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
 
-    /* ---------- CREATE USER ---------- */
+    let user;
+    let mentorProfile;
+    let rawToken;
 
-    const { user, rawToken } = await createUserWithToken({
-      email,
-      role: "mentor",
-      referenceModel: "MentorProfile",
-      createdBy: creator._id
-    });
+    // ================= USER CHECK =================
 
-    /* ---------- CREATE PROFILE ---------- */
+    user = await User.findOne({ email }).session(session);
 
-    const profile = await MentorProfile.create(
-      [
+    // ================= EXISTING USER =================
+
+    if (user) {
+
+      if (user.role !== "mentor") {
+        throw new Error("User already exists with different role");
+      }
+
+      const result = await createUserWithToken(
         {
+          email,
+          role: "mentor",
+          referenceModel: "MentorProfile",
+          createdBy: creator._id
+        },
+        session
+      );
+
+      rawToken = result.rawToken;
+      user = result.user;
+
+      if (user.referenceId) {
+        mentorProfile = await MentorProfile
+          .findById(user.referenceId)
+          .session(session);
+      }
+
+      // SELF HEAL
+      if (!mentorProfile) {
+
+        const profile = await MentorProfile.create(
+          [{
+            user: user._id,
+            fullName,
+            company: companyId,
+            designation,
+            department,
+            employeeId,
+            status: "active",
+            profileStatus: "pending",
+            createdBy: creator._id
+          }],
+          { session }
+        );
+
+        mentorProfile = profile[0];
+
+        user.referenceId = mentorProfile._id;
+        await user.save({ session });
+
+      } else {
+
+        mentorProfile.company = companyId;
+        mentorProfile.designation = designation;
+        mentorProfile.department = department;
+        mentorProfile.employeeId = employeeId;
+        mentorProfile.status = "active";
+
+        await mentorProfile.save({ session });
+      }
+
+    }
+
+    // ================= NEW USER =================
+
+    else {
+
+      const result = await createUserWithToken(
+        {
+          email,
+          role: "mentor",
+          referenceModel: "MentorProfile",
+          createdBy: creator._id
+        },
+        session
+      );
+
+      user = result.user;
+      rawToken = result.rawToken;
+
+      const profile = await MentorProfile.create(
+        [{
           user: user._id,
           fullName,
           company: companyId,
@@ -184,37 +602,55 @@ export const inviteMentorService = async (body, creator) => {
           department,
           employeeId,
           status: "active",
+          profileStatus: "pending",
           createdBy: creator._id
-        }
-      ],
+        }],
+        { session }
+      );
+
+      mentorProfile = profile[0];
+
+      user.referenceId = mentorProfile._id;
+      await user.save({ session });
+    }
+
+    // ================= EMPLOYMENT HISTORY =================
+
+    await MentorEmploymentHistory.create(
+      [{
+        mentor: mentorProfile._id,
+        company: companyId,
+        designation,
+        department,
+        startDate: new Date(),
+        status: "active",
+        addedBy: creator._id
+      }],
       { session }
     );
-
-    user.referenceId = profile[0]._id;
-
-    await user.save({ session });
 
     await session.commitTransaction();
     session.endSession();
 
-    /* ---------- EMAIL ---------- */
+    // ================= EMAIL =================
 
     const setupLink =
       `${process.env.FRONTEND_URL}/setup-account?token=${rawToken}`;
 
     await sendEmail({
       to: email,
-      subject: "Mentor Account Invitation",
+      subject: "Mentor Invitation",
       html: `
-        <p>Your mentor account has been created.</p>
-        <p>Set your password here:</p>
+        <p>You have been assigned as Mentor.</p>
+        <p>Complete setup using link below:</p>
         <a href="${setupLink}">${setupLink}</a>
       `
     });
 
-    return profile[0];
+    return mentorProfile;
 
   } catch (err) {
+
     await session.abortTransaction();
     session.endSession();
     throw err;

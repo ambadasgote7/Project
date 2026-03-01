@@ -14,8 +14,8 @@ const companySchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      unique: true,
-      trim: true
+      trim: true,
+      index: true
     },
 
     locations: [locationSchema],
@@ -29,6 +29,17 @@ const companySchema = new mongoose.Schema(
     industry: String,
 
     companySize: String,
+
+    description: String,
+
+    // profile completion tracking (added for consistency)
+    profileStatus: {
+      type: String,
+      enum: ["pending", "completed"],
+      default: "pending",
+      index: true
+    },
+    profileCompletedAt: Date,
 
     status: {
       type: String,

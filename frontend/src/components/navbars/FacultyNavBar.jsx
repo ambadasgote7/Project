@@ -49,6 +49,13 @@ const FacultyNavBar = () => {
               </Link>
 
               <Link
+                to="/faculty/profile"
+                className="px-3 py-2 rounded-md hover:text-[#EB4C4C] hover:bg-[#FFEDC7]/40 transition-all duration-200"
+              >
+                Profile
+              </Link>
+
+              <Link
                 to="/faculty/invite-student"
                 className="px-3 py-2 rounded-md hover:text-[#EB4C4C] hover:bg-[#FFEDC7]/40 transition-all duration-200"
               >
@@ -56,10 +63,10 @@ const FacultyNavBar = () => {
               </Link>
 
               <Link
-                to="/faculty/student-requests"
+                to="/faculty/students"
                 className="px-3 py-2 rounded-md hover:text-[#EB4C4C] hover:bg-[#FFEDC7]/40 transition-all duration-200"
               >
-                Student Approvals
+                Student List
               </Link>
 
               <Link

@@ -29,7 +29,7 @@ const studentProfileSchema = new mongoose.Schema(
     college: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "College",
-      required: true,
+      default: null,
       index: true
     },
 
@@ -77,7 +77,7 @@ const studentProfileSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["active", "inactive", "graduated"],
+      enum: ["active", "unassigned", "inactive", "graduated"],
       default: "active"
     },
 

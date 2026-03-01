@@ -23,12 +23,20 @@ const mentorProfileSchema = new mongoose.Schema(
     },
 
     designation: String,
-
     department: String,
-
+    bio: String,
     phoneNo: String,
 
     employeeId: String,
+
+    profileStatus: {
+      type: String,
+      enum: ["pending", "completed"],
+      default: "pending",
+      index: true
+    },
+
+    profileCompletedAt: Date,
 
     status: {
       type: String,
@@ -42,19 +50,13 @@ const mentorProfileSchema = new mongoose.Schema(
       index: true
     }
   },
-  {
-    timestamps: true
-  }
+  { timestamps: true }
 );
 
-//
-// OPTIONAL COMPOUND INDEX → employeeId unique per company
-//
 mentorProfileSchema.index(
   { company: 1, employeeId: 1 },
   { unique: true, sparse: true }
 );
-
 
 const MentorProfile = mongoose.model(
   "MentorProfile",

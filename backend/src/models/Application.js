@@ -41,6 +41,7 @@ const applicationSchema = new mongoose.Schema(
         "applied",
         "shortlisted",
         "selected",
+        "offer_accepted",
         "rejected",
         "withdrawn",
         "ongoing",
@@ -51,21 +52,42 @@ const applicationSchema = new mongoose.Schema(
       index: true
     },
 
+    resumeSnapshot: String,
+
+    skillsSnapshot: [String],
+
+    studentSnapshot: {
+      fullName: String,
+      phoneNo: String,
+      email: String,
+      collegeName: String,
+      courseName: String,
+      specialization: String
+    },
+
     appliedAt: {
       type: Date,
       default: Date.now
     },
 
     selectionDate: Date,
+    offerAcceptedAt: Date,
+    offerRejectedAt: Date,
+    withdrawnAt: Date,
 
     internshipStartDate: Date,
-
     internshipEndDate: Date,
 
-    evaluationScore: Number,
+    completionDate: Date,
+    terminationDate: Date,
+
+    evaluationScore: {
+      type: Number,
+      min: 0,
+      max: 100
+    },
 
     mentorFeedback: String,
-
     facultyFeedback: String,
 
     certificateUrl: String,
@@ -77,16 +99,36 @@ const applicationSchema = new mongoose.Schema(
   }
 );
 
-//
-// UNIQUE COMPOUND INDEX → prevent duplicate applications
-//
+applicationSchema.pre("save", async function () {
+
+  if (this.status === "selected" && !this.selectionDate) {
+    throw new Error("Selection date required");
+  }
+
+  if (this.status === "offer_accepted" && !this.offerAcceptedAt) {
+    throw new Error("Offer acceptance date required");
+  }
+
+  if (this.status === "ongoing" && !this.internshipStartDate) {
+    throw new Error("Start date required");
+  }
+
+  if (this.status === "completed" && !this.internshipEndDate) {
+    throw new Error("End date required");
+  }
+
+});
+/*
+  UNIQUE → prevent duplicate applications
+*/
 applicationSchema.index(
   { student: 1, internship: 1 },
   { unique: true }
 );
 
-
-
-const Application = mongoose.model("Application", applicationSchema);
+const Application = mongoose.model(
+  "Application",
+  applicationSchema
+);
 
 export default Application;

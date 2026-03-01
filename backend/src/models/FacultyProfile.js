@@ -18,31 +18,21 @@ const facultyProfileSchema = new mongoose.Schema(
     college: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "College",
-      required: true,
+      default: null,
       index: true
     },
 
-    courseName: {
-      type: String
-    },
+    // academic mapping
+    courseName: String,        // from college.courses.name
+    department: String,        // specialization from course.specializations
 
-    specialization: {
-      type: String
-    },
+    designation: String,
+    phoneNo: String,
+    bio: String,
 
-    designation: {
-      type: String
-    },
+    joiningYear: String,
+    employeeId: String,
 
-    phoneNo: {
-      type: String
-    },
-
-    employeeId: {
-      type: String
-    },
-
-    // 🔥 Profile completion tracking
     profileStatus: {
       type: String,
       enum: ["pending", "completed"],
@@ -54,7 +44,7 @@ const facultyProfileSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["active", "inactive"],
+      enum: ["active", "unassigned", "inactive"],
       default: "active"
     },
 
@@ -64,19 +54,14 @@ const facultyProfileSchema = new mongoose.Schema(
       index: true
     }
   },
-  {
-    timestamps: true
-  }
+  { timestamps: true }
 );
 
-//
-// EmployeeId unique per college
-//
+// employeeId unique per college
 facultyProfileSchema.index(
   { college: 1, employeeId: 1 },
   { unique: true, sparse: true }
 );
-
 
 const FacultyProfile = mongoose.model(
   "FacultyProfile",

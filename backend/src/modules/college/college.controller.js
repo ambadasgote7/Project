@@ -5,7 +5,10 @@ import {
   getCoursesService,
   getCollegeProfileService,
   updateCollegeProfileService,
-  getCollegeListService
+  getCollegeListService,
+  getCollegeFacultyService,
+  updateCollegeFacultyService,
+  removeFacultyFromCollegeService
 } from "./college.service.js";
 
 export const getCourses = async (req, res) => {
@@ -114,6 +117,56 @@ export const updateCollegeProfile = async (req, res, next) => {
       data
     });
 
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const getCollegeFaculty = async (req, res, next) => {
+  try {
+    const faculty = await getCollegeFacultyService(req.user);
+
+    res.status(200).json({
+      success: true,
+      data: faculty
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const updateCollegeFaculty = async (req, res, next) => {
+  try {
+    const { facultyId } = req.params;
+
+    const faculty = await updateCollegeFacultyService(
+      req.user,
+      facultyId,
+      req.body
+    );
+
+    res.status(200).json({
+      success: true,
+      data: faculty
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const removeFacultyFromCollege = async (req, res, next) => {
+  try {
+    const { facultyId } = req.params;
+
+    const result = await removeFacultyFromCollegeService(
+      req.user,
+      facultyId
+    );
+
+    res.status(200).json({
+      success: true,
+      data: result
+    });
   } catch (err) {
     next(err);
   }

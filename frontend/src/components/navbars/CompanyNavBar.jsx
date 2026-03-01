@@ -42,6 +42,13 @@ const CompanyNavBar = () => {
           {showCore && (
             <>
               <Link
+                to="/company/profile"
+                className="px-3 py-2 rounded-md hover:text-[#EB4C4C] hover:bg-[#FFEDC7]/40 transition-all duration-200"
+              >
+                Profile
+              </Link>
+
+              <Link
                 to="/company/invite-mentor"
                 className="px-3 py-2 rounded-md hover:text-[#EB4C4C] hover:bg-[#FFEDC7]/40 transition-all duration-200"
               >
@@ -49,24 +56,31 @@ const CompanyNavBar = () => {
               </Link>
 
               <Link
-                to="/company/internships"
+                to="/company/mentors"
+                className="px-3 py-2 rounded-md hover:text-[#EB4C4C] hover:bg-[#FFEDC7]/40 transition-all duration-200"
+              >
+                Mentor List
+              </Link>
+
+              <Link
+                to="/company/post-internship"
                 className="px-3 py-2 rounded-md hover:text-[#EB4C4C] hover:bg-[#FFEDC7]/40 transition-all duration-200"
               >
                 Post Internships
               </Link>
 
               <Link
-                to="/company/postings"
+                to="/company/company-internships"
                 className="px-3 py-2 rounded-md hover:text-[#EB4C4C] hover:bg-[#FFEDC7]/40 transition-all duration-200"
               >
                 View Postings
               </Link>
 
               <Link
-                to="/company/mentors"
+                to="/company/interns"
                 className="px-3 py-2 rounded-md hover:text-[#EB4C4C] hover:bg-[#FFEDC7]/40 transition-all duration-200"
               >
-                Mentor List
+                Interns List
               </Link>
             </>
           )}

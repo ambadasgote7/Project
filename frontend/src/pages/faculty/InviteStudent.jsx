@@ -44,7 +44,7 @@ export default function InviteStudent() {
       setForm(prev => ({
         ...prev,
         courseName: profile.courseName || "",
-        specialization: profile.specialization || ""
+        specialization: profile.department || ""
       }));
     }
     console.log(profile);
@@ -92,7 +92,7 @@ export default function InviteStudent() {
         email: "",
         fullName: "",
         courseName: isFaculty ? profile?.courseName || "" : "",
-        specialization: isFaculty ? profile?.specialization || "" : "",
+        specialization: isFaculty ? profile?.department || "" : "",
         courseStartYear: "",
         courseEndYear: ""
       });

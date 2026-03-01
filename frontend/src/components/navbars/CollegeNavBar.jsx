@@ -56,6 +56,20 @@ const CollegeNavBar = () => {
               </Link>
 
               <Link
+                to="/college/faculty"
+                className="px-3 py-2 rounded-md hover:text-[#EB4C4C] hover:bg-[#FFEDC7]/40 transition-all duration-200"
+              >
+                Faculty List
+              </Link>
+
+              <Link
+                to="/college/students"
+                className="px-3 py-2 rounded-md hover:text-[#EB4C4C] hover:bg-[#FFEDC7]/40 transition-all duration-200"
+              >
+                Student List
+              </Link>
+
+              <Link
                 to="/college/invite-faculty"
                 className="px-3 py-2 rounded-md hover:text-[#EB4C4C] hover:bg-[#FFEDC7]/40 transition-all duration-200"
               >

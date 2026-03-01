@@ -48,14 +48,14 @@ const StudentNavBar = () => {
               </Link>
 
               <Link
-                to="/student/internships"
+                to="/student/browse-internships"
                 className="px-3 py-2 rounded-md hover:text-[#EB4C4C] hover:bg-[#FFEDC7]/40 transition-all duration-200"
               >
-                Internships
+                Browse
               </Link>
 
               <Link
-                to="/student/applications"
+                to="/student/my-applications"
                 className="px-3 py-2 rounded-md hover:text-[#EB4C4C] hover:bg-[#FFEDC7]/40 transition-all duration-200"
               >
                 Applications

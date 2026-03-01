@@ -25,9 +25,9 @@ import MentorDashboard from "./pages/mentor/MentorDashboard";
 
 /* Admin */
 import AdminLogin from "./pages/admin/AdminLogin";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import CollegeRequests from "./pages/admin/CollegeRequests";
-import CompanyRequests from "./pages/admin/CompanyRequests";
+import AdminColleges from "./pages/admin/colleges/AdminColleges";
+import AdminCollegeForm from "./pages/admin/colleges/AdminCollegeForm";
+import AdminCollegeDetails from "./pages/admin/colleges/AdminCollegeDetails";
 
 import SetPassword from "./pages/SetPassword";
 
@@ -42,7 +42,31 @@ import Courses from "./pages/college/Courses";
 import InviteMentor from "./pages/company/InviteMentor";
 import StudentProfile from "./pages/students/StudentProfile";
 import CollegeProfile from "./pages/college/CollegeProfile";
-import AdminCollegeProfile from "./pages/admin/AdminCollegeProfile";
+import FacultyProfile from "./pages/faculty/FacultyProfile";
+import MentorProfile from "./pages/mentor/MentorProfile";
+import CompanyProfile from "./pages/company/CompanyProfile";
+import CollegeFacultyList from "./pages/college/CollegeFacultyList";
+import CompanyMentorList from "./pages/company/CompanyMentorList";
+import CollegeStudents from "./pages/college/CollegeStudents";
+import FacultyStudents from "./pages/faculty/FacultyStudents";
+import PostInternship from "./pages/company/PostInternship";
+import BrowseInternships from "./pages/students/BrowseInternships";
+import InternshipDetails from "./pages/students/InternshipDetails";
+import MyApplications from "./pages/students/MyApplications";
+import InternshipApplicants from "./pages/company/InternshipApplicants";
+import CompanyInternships from "./pages/company/CompanyInternships";
+import EditInternship from "./pages/company/EditInternship";
+import CompanyInterns from "./pages/company/CompanyInterns";
+import InternDetails from "./pages/company/InternDetails";
+import AdminLayout from "./layouts/AdminLayout";
+import PendingRequests from "./pages/admin/onboarding/PendingRequests";
+import VerifiedOnboardings from "./pages/admin/onboarding/VerifiedOnboardings";
+import OnboardingDetails from "./pages/admin/onboarding/OnboardingDetails";
+import AdminCompanies from "./pages/admin/companies/AdminCompanies";
+import AdminCompanyForm from "./pages/admin/companies/AdminCompanyForm";
+import AdminCompanyDetails from "./pages/admin/companies/AdminCompanyDetails";
+import AdminUsers from "./pages/admin/users/AdminUsers";
+import AdminUserDetails from "./pages/admin/users/AdminUserDetails";
 
 
 function AppContent() {
@@ -98,8 +122,13 @@ useEffect(() => {
 
 }, [dispatch]);
 
-  if (loading) return null;
-
+if (loading) {
+  return (
+    <div className="h-screen flex items-center justify-center">
+      <p>Loading...</p>
+    </div>
+  );
+}
 
   return (
     <BrowserRouter>
@@ -119,11 +148,40 @@ useEffect(() => {
           <Route path="/college/invite-faculty" element={<InviteFaculty />} />
           <Route path="/college/courses" element={<Courses />} />
           <Route path="/college/profile" element={<CollegeProfile />} />
+          <Route path="/college/faculty" element={<CollegeFacultyList />} />
+          <Route path="/college/students" element={<CollegeStudents />} />
+        </Route>
+
+        <Route element={<ProtectedRoute role="faculty" />}>
+          <Route path="/faculty/profile" element={<FacultyProfile />} />
+          <Route path="/faculty/invite-student" element={<InviteStudent />} />
+          <Route path="/faculty/students" element={<FacultyStudents />} />
+        </Route>
+
+        <Route element={<ProtectedRoute role="mentor" />}>
+          <Route path="/mentor/profile" element={<MentorProfile />} />
+        </Route>
+
+        <Route element={<ProtectedRoute role="company" />}>
+          <Route path="/company/dashboard" element={<CompanyDashboard />} />
+          <Route path="/company/invite-mentor" element={<InviteMentor />} />
+          <Route path="/company/profile" element={<CompanyProfile />} />
+          <Route path="/company/mentors" element={<CompanyMentorList />} />
+          <Route path="/company/post-internship" element={<PostInternship />} />
+          <Route path="/company/company-internships" element={<CompanyInternships />} />
+          <Route path="/company/internship/:id/applicants" element={<InternshipApplicants />} />
+          <Route path="/company/internship/:id/edit" element={<EditInternship />} />
+          <Route path="/company/interns" element={<CompanyInterns />} />
+          <Route path="/company/intern/:id" element={<InternDetails />} />
+
         </Route>
 
         <Route element={<ProtectedRoute role="student" />}>
           <Route path="/student/dashboard" element={<StudentDashboard />} />
           <Route path="/student/profile" element={<StudentProfile />} />
+          <Route path="/student/browse-internships" element={<BrowseInternships />} />
+          <Route path="/student/internships/:id" element={<InternshipDetails />} />
+          <Route path="/student/my-applications" element={<MyApplications />} />
         </Route>
 
         <Route element={<ProtectedRoute role="faculty" />}>
@@ -131,21 +189,37 @@ useEffect(() => {
           <Route path="/faculty/invite-student" element={<InviteStudent />} />
         </Route>
 
-        <Route element={<ProtectedRoute role="company" />}>
-          <Route path="/company/dashboard" element={<CompanyDashboard />} />
-          <Route path="/company/invite-mentor" element={<InviteMentor />} />
-        </Route>
-
-        <Route element={<ProtectedRoute role="mentor" />}>
+            <Route element={<ProtectedRoute role="mentor" />}>
           <Route path="/mentor" element={<MentorDashboard />} />
         </Route>
+        
 
-        <Route element={<ProtectedRoute role="admin" />}>
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/college-requests" element={<CollegeRequests />} />
-          <Route path="/admin/company-requests" element={<CompanyRequests />} />
-          <Route path="/admin/colleges" element={<AdminCollegeProfile />} />
-        </Route>
+       <Route element={<ProtectedRoute role="admin" />}>
+  
+        <Route path="/admin" element={<AdminLayout />}>
+
+        {/* Dashboard */}
+        <Route index element={<div>ADMIN OK</div>} />
+
+        {/* Onboarding */}
+        <Route path="onboarding/pending" element={<PendingRequests />} />
+        <Route path="onboarding/verified" element={<VerifiedOnboardings />} />
+        <Route path="onboarding/:type/:id" element={<OnboardingDetails />} /> 
+        <Route path="colleges" element={<AdminColleges />} />
+<Route path="colleges/new" element={<AdminCollegeForm />} />
+<Route path="colleges/edit/:id" element={<AdminCollegeForm />} />
+<Route path="colleges/:id" element={<AdminCollegeDetails />} />
+
+        <Route path="companies" element={<AdminCompanies />} />
+<Route path="companies/new" element={<AdminCompanyForm />} />
+<Route path="companies/edit/:id" element={<AdminCompanyForm />} />
+<Route path="companies/:id" element={<AdminCompanyDetails />} />
+<Route path="users" element={<AdminUsers />} />
+<Route path="users/:id" element={<AdminUserDetails />} />
+
+      </Route>
+
+</Route>
 
         <Route path="/admin/login" element={<AdminLogin />} />
 

@@ -1,65 +1,56 @@
 import mongoose from "mongoose";
 
-const mentorProfileSchema = new mongoose.Schema(
+const mentorEmploymentHistorySchema = new mongoose.Schema(
   {
-    user: {
+    mentor: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "MentorProfile",
       required: true,
-      unique: true
-    },
-
-    fullName: {
-      type: String,
-      required: true,
-      trim: true
+      index: true
     },
 
     company: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Company",
-      default: null,
+      required: true,
       index: true
     },
 
     designation: String,
-
     department: String,
 
-    phoneNo: String,
+    startDate: {
+      type: Date,
+      required: true
+    },
 
-    employeeId: String,
+    endDate: {
+      type: Date,
+      default: null
+    },
 
     status: {
       type: String,
-      enum: ["active", "unassigned", "inactive"],
-      default: "unassigned"
+      enum: ["active", "ended"],
+      default: "active"
     },
 
-    createdBy: {
+    addedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      index: true
+      ref: "User"
+    },
+
+    endedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
     }
   },
-  {
-    timestamps: true
-  }
+  { timestamps: true }
 );
 
-//
-// OPTIONAL COMPOUND INDEX → employeeId unique per company
-//
-mentorProfileSchema.index(
-  { company: 1, employeeId: 1 },
-  { unique: true, sparse: true }
+const MentorEmploymentHistory = mongoose.model(
+  "MentorEmploymentHistory",
+  mentorEmploymentHistorySchema
 );
 
-
-
-const MentorProfile = mongoose.model(
-  "MentorProfile",
-  mentorProfileSchema
-);
-
-export default MentorProfile;
+export default MentorEmploymentHistory;
