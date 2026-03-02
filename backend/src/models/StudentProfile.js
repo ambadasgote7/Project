@@ -51,6 +51,13 @@ const studentProfileSchema = new mongoose.Schema(
       type: Number
     },
 
+    academicYear: {
+      type: Number,
+      required: true,
+      min: 1,
+      index: true
+    },
+
     phoneNo: String,
 
     collegeIdCardUrl: String,
@@ -97,7 +104,12 @@ const studentProfileSchema = new mongoose.Schema(
 //
 studentProfileSchema.index(
   { college: 1, prn: 1 },
-  { unique: true, sparse: true }
+  {
+    unique: true,
+    partialFilterExpression: {
+      prn: { $type: "string" }
+    }
+  }
 );
 
 const StudentProfile = mongoose.model(

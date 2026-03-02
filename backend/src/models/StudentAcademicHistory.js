@@ -29,6 +29,13 @@ const studentAcademicHistorySchema = new mongoose.Schema(
       default: null
     },
 
+    academicYear: {
+      type: Number,
+      required: true,
+      min: 1,
+      index: true
+    },
+    
     status: {
       type: String,
       enum: ["active", "ended"],

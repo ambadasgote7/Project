@@ -15,13 +15,38 @@ import MentorEmploymentHistory from "../../models/MentorEmploymentHistory.js";
 import StudentAcademicHistory from "../../models/StudentAcademicHistory.js";
 
 
-/* ======================================================
-   INVITE STUDENT
-====================================================== */
+// =====================================================
+// RESOLVE COLLEGE FROM CREATOR
+// =====================================================
+
+const resolveCollegeId = async (creator, session) => {
+
+  if (creator.role === "college") {
+    return creator.referenceId;
+  }
+
+  if (creator.role === "faculty") {
+
+    const faculty = await FacultyProfile.findById(
+      creator.referenceId
+    ).session(session);
+
+    if (!faculty) {
+      throw new Error("Faculty profile not found");
+    }
+
+    return faculty.college;
+  }
+
+  throw new Error("Admin cannot directly invite student");
+};
 
 
+// =====================================================
+// SINGLE STUDENT INVITE LOGIC
+// =====================================================
 
-export const inviteStudentService = async (body, creator) => {
+const inviteOneStudent = async (body, creator, session) => {
 
   const {
     email,
@@ -29,150 +54,58 @@ export const inviteStudentService = async (body, creator) => {
     courseName,
     specialization,
     courseStartYear,
-    courseEndYear
+    courseEndYear,
+    academicYear
   } = body;
 
-  if (!email || !fullName) {
-    throw new Error("Email and full name required");
+  if (!email || !fullName || !academicYear) {
+    throw new Error("Email, full name and academic year required");
   }
 
-  // =====================================================
-  // RESOLVE COLLEGE ID FROM CREATOR
-  // =====================================================
-
-  let collegeId = null;
-
-  if (creator.role === "college") {
-    collegeId = creator.referenceId;
-  }
-
-  else if (creator.role === "faculty") {
-
-    const faculty = await FacultyProfile.findById(creator.referenceId);
-
-    if (!faculty) {
-      throw new Error("Faculty profile not found");
-    }
-
-    collegeId = faculty.college;
-  }
-
-  else if (creator.role === "admin") {
-    throw new Error("Admin cannot directly invite student without college");
-  }
+  const collegeId = await resolveCollegeId(creator, session);
 
   if (!collegeId) {
     throw new Error("College not resolved");
   }
 
+  let user;
+  let studentProfile;
+  let rawToken;
+  let isNewUser = false;
+
+  user = await User.findOne({ email }).session(session);
+
   // =====================================================
-  // TRANSACTION
+  // EXISTING USER
   // =====================================================
 
-  const session = await mongoose.startSession();
-  session.startTransaction();
+  if (user) {
 
-  try {
-
-    let user;
-    let studentProfile;
-    let rawToken = null;
-    let isNewUser = false;
-
-    // =====================================================
-    // CHECK USER
-    // =====================================================
-
-    user = await User.findOne({ email }).session(session);
-
-    // =====================================================
-    // USER EXISTS
-    // =====================================================
-
-    if (user) {
-
-      if (user.role !== "student") {
-        throw new Error("User already exists with different role");
-      }
-
-      const result = await createUserWithToken(
-        {
-          email,
-          role: "student",
-          referenceModel: "StudentProfile",
-          createdBy: creator._id
-        },
-        session
-      );
-
-      rawToken = result.rawToken;
-      user = result.user;
-
-      if (user.referenceId) {
-        studentProfile = await StudentProfile
-          .findById(user.referenceId)
-          .session(session);
-      }
-
-      // SELF HEAL PROFILE
-      if (!studentProfile) {
-
-        const profile = await StudentProfile.create(
-          [{
-            user: user._id,
-            fullName,
-            college: collegeId,
-            courseName,
-            specialization,
-            courseStartYear,
-            courseEndYear,
-            status: "active",
-            profileStatus: "pending",
-            createdBy: creator._id
-          }],
-          { session }
-        );
-
-        studentProfile = profile[0];
-
-        user.referenceId = studentProfile._id;
-        await user.save({ session });
-
-      } else {
-
-        // REASSIGN
-        studentProfile.college = collegeId;
-        studentProfile.courseName = courseName;
-        studentProfile.specialization = specialization;
-        studentProfile.courseStartYear = courseStartYear;
-        studentProfile.courseEndYear = courseEndYear;
-        studentProfile.status = "active";
-
-        await studentProfile.save({ session });
-      }
-
+    if (user.role !== "student") {
+      throw new Error("User already exists with different role");
     }
 
-    // =====================================================
-    // NEW USER
-    // =====================================================
+    const result = await createUserWithToken(
+      {
+        email,
+        role: "student",
+        referenceModel: "StudentProfile",
+        createdBy: creator._id
+      },
+      session
+    );
 
-    else {
+    rawToken = result.rawToken;
+    user = result.user;
 
-      isNewUser = true;
+    if (user.referenceId) {
+      studentProfile = await StudentProfile
+        .findById(user.referenceId)
+        .session(session);
+    }
 
-      const result = await createUserWithToken(
-        {
-          email,
-          role: "student",
-          referenceModel: "StudentProfile",
-          createdBy: creator._id
-        },
-        session
-      );
-
-      user = result.user;
-      rawToken = result.rawToken;
+    // SELF HEAL
+    if (!studentProfile) {
 
       const profile = await StudentProfile.create(
         [{
@@ -183,6 +116,7 @@ export const inviteStudentService = async (body, creator) => {
           specialization,
           courseStartYear,
           courseEndYear,
+          academicYear,
           status: "active",
           profileStatus: "pending",
           createdBy: creator._id
@@ -194,62 +128,158 @@ export const inviteStudentService = async (body, creator) => {
 
       user.referenceId = studentProfile._id;
       await user.save({ session });
+
+    } else {
+
+      // REASSIGN / UPDATE
+      studentProfile.fullName = fullName;
+      studentProfile.college = collegeId;
+      studentProfile.courseName = courseName;
+      studentProfile.specialization = specialization;
+      studentProfile.courseStartYear = courseStartYear;
+      studentProfile.courseEndYear = courseEndYear;
+      studentProfile.academicYear = academicYear;
+      studentProfile.status = "active";
+
+      await studentProfile.save({ session });
     }
 
-    // =====================================================
-    // ACADEMIC HISTORY
-    // =====================================================
+  }
 
-    await StudentAcademicHistory.create(
+  // =====================================================
+  // NEW USER
+  // =====================================================
+
+  else {
+
+    isNewUser = true;
+
+    const result = await createUserWithToken(
+      {
+        email,
+        role: "student",
+        referenceModel: "StudentProfile",
+        createdBy: creator._id
+      },
+      session
+    );
+
+    user = result.user;
+    rawToken = result.rawToken;
+
+    const profile = await StudentProfile.create(
       [{
-        student: studentProfile._id,
+        user: user._id,
+        fullName,
         college: collegeId,
         courseName,
         specialization,
-        startDate: new Date(),
+        courseStartYear,
+        courseEndYear,
+        academicYear,
         status: "active",
-        addedBy: creator._id
+        profileStatus: "pending",
+        createdBy: creator._id
       }],
       { session }
     );
 
+    studentProfile = profile[0];
+
+    user.referenceId = studentProfile._id;
+    await user.save({ session });
+  }
+
+  // =====================================================
+  // ACADEMIC HISTORY
+  // =====================================================
+
+  await StudentAcademicHistory.create(
+    [{
+      student: studentProfile._id,
+      college: collegeId,
+      courseName,
+      specialization,
+      startDate: new Date(),
+      academicYear,
+      status: "active",
+      addedBy: creator._id
+    }],
+    { session }
+  );
+
+  // =====================================================
+  // EMAIL
+  // =====================================================
+
+  const setupLink =
+    `${process.env.FRONTEND_URL}/setup-account?token=${rawToken}`;
+
+  if (rawToken) {
+
+    await sendEmail({
+      to: email,
+      subject: isNewUser
+        ? "Student Account Invitation"
+        : "College Assignment Updated",
+      html: `
+        <p>You have been invited as Student.</p>
+        <p>Complete setup using the link below:</p>
+        <a href="${setupLink}">${setupLink}</a>
+      `
+    });
+
+  }
+
+  return studentProfile;
+};
+
+
+
+// =====================================================
+// MAIN SERVICE — SINGLE OR BULK
+// =====================================================
+
+export const inviteStudentService = async (payload, creator) => {
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+
+    let results = [];
+
+    // SINGLE
+    if (!Array.isArray(payload)) {
+
+      const student = await inviteOneStudent(
+        payload,
+        creator,
+        session
+      );
+
+      results.push(student);
+    }
+
+    // BULK
+    else {
+
+      for (const body of payload) {
+
+        const student = await inviteOneStudent(
+          body,
+          creator,
+          session
+        );
+
+        results.push(student);
+      }
+    }
+
     await session.commitTransaction();
     session.endSession();
 
-    // =====================================================
-    // EMAIL
-    // =====================================================
-
-    const setupLink =
-      `${process.env.FRONTEND_URL}/setup-account?token=${rawToken}`;
-
-    if (isNewUser) {
-
-      await sendEmail({
-        to: email,
-        subject: "Student Account Invitation",
-        html: `
-          <p>You have been invited as Student.</p>
-          <p>Set your password using the link below:</p>
-          <a href="${setupLink}">${setupLink}</a>
-        `
-      });
-
-    } else {
-
-      await sendEmail({
-        to: email,
-        subject: "College Assignment Updated",
-        html: `
-          <p>You have been assigned to a college in InternStatus.</p>
-          <p>Please complete setup using the link below:</p>
-          <a href="${setupLink}">${setupLink}</a>
-        `
-      });
-
-    }
-
-    return studentProfile;
+    return results;
 
   } catch (err) {
 
@@ -258,7 +288,6 @@ export const inviteStudentService = async (body, creator) => {
     throw err;
   }
 };
-
 
 /* ======================================================
    INVITE FACULTY  (WITH EMPLOYMENT HISTORY)

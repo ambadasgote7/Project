@@ -15,9 +15,6 @@ const MainLayout = () => {
       {/* Body Section */}
       <div className="flex flex-1">
 
-        {/* Sidebar */}
-        <Sidebar />
-
         {/* Page Content */}
         <main className="flex-1 p-6 bg-gray-50">
           <Outlet />
