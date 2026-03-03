@@ -6,15 +6,29 @@ import User from "../../models/User.js";
 // ======================================
 // GET COLLEGE STUDENTS
 // ======================================
-
 export const getCollegeStudentsService = async (user) => {
-
   const collegeId = user.referenceId;
 
   const students = await StudentProfile.find({
     college: collegeId,
     status: "active"
   })
+    .select(`
+      fullName
+      prn
+      abcId
+      phoneNo
+      skills
+      bio
+      resumeUrl
+      collegeIdCardUrl
+      courseName
+      specialization
+      courseStartYear
+      courseEndYear
+      Year
+      status
+    `)
     .populate("user", "email")
     .lean();
 
@@ -32,7 +46,6 @@ export const updateCollegeStudentService = async (
   studentId,
   body
 ) => {
-
   const collegeId = user.referenceId;
 
   const student = await StudentProfile.findOne({
@@ -42,20 +55,36 @@ export const updateCollegeStudentService = async (
 
   if (!student) throw new Error("Student not found");
 
-  const allowedFields = [
+  // Academic fields
+  const academicFields = [
     "courseName",
     "specialization",
     "courseStartYear",
     "courseEndYear",
-    "prn",
-    "phoneNo"
+    "Year",
+    "status"
   ];
 
-  allowedFields.forEach(field => {
+  academicFields.forEach(field => {
     if (body[field] !== undefined) {
       student[field] = body[field];
     }
   });
+
+  // PRN correction allowed
+  if (body.prn !== undefined) {
+    student.prn = body.prn;
+  }
+
+  // ABC correction allowed with validation
+  if (body.abcId !== undefined) {
+
+    if (!/^\d{12}$/.test(body.abcId)) {
+      throw new Error("ABC ID must be 12 digits");
+    }
+
+    student.abcId = body.abcId;
+  }
 
   await student.save();
 

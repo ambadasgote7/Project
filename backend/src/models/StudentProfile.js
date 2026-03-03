@@ -51,12 +51,19 @@ const studentProfileSchema = new mongoose.Schema(
       type: Number
     },
 
-    academicYear: {
+    Year: {
       type: Number,
       required: true,
       min: 1,
       index: true
     },
+
+    abcId: {
+  type: String,
+  minlength: 12,
+  maxlength: 12,
+  match: [/^\d{12}$/, "ABC ID must be a 12-digit number"]
+},
 
     phoneNo: String,
 
@@ -108,6 +115,16 @@ studentProfileSchema.index(
     unique: true,
     partialFilterExpression: {
       prn: { $type: "string" }
+    }
+  }
+);
+
+studentProfileSchema.index(
+  { abcId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      abcId: { $exists: true, $ne: null }
     }
   }
 );

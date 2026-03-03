@@ -241,7 +241,7 @@ export const getCompanyInternsService = async (user) => {
 
   const interns = await Application.find({
     company: user.referenceId,
-    status: { $in: ["selected", "ongoing", "completed"] }
+    status: { $in: ["offer_accepted", "ongoing", "completed"] }
   })
     .populate("student")
     .populate("mentor")
@@ -270,12 +270,14 @@ export const assignMentorService = async (
     throw new Error("Application not found");
   }
 
-  application.mentor = mentorId;
-
-  if (application.status === "selected") {
-    application.status = "ongoing";
-    application.internshipStartDate = new Date();
+  // 🔒 Allow only before internship starts
+  if (application.status !== "offer_accepted") {
+    throw new Error(
+      "Mentor can only be assigned before internship starts"
+    );
   }
+
+  application.mentor = mentorId;
 
   await application.save();
 

@@ -7,10 +7,15 @@ export default function InternshipApplicants() {
 
   const { id } = useParams();
   const [data, setData] = useState([]);
+  const [loadingId, setLoadingId] = useState(null);
 
   const fetchData = async () => {
-    const res = await API.get(`/applications/internship/${id}`);
-    setData(res.data.data);
+    try {
+      const res = await API.get(`/applications/internship/${id}`);
+      setData(res.data.data || []);
+    } catch {
+      alert("Failed to load applicants");
+    }
   };
 
   useEffect(() => {
@@ -18,34 +23,47 @@ export default function InternshipApplicants() {
   }, []);
 
   const updateStatus = async (appId, status) => {
+
+    const confirmAction = window.confirm(
+      `Are you sure you want to mark as ${status}?`
+    );
+
+    if (!confirmAction) return;
+
+    setLoadingId(appId);
+
     try {
       await API.patch(`/applications/${appId}/status`, { status });
-      fetchData();
+      await fetchData();
     } catch (err) {
-      alert(err.response?.data?.message);
+      alert(err.response?.data?.message || "Update failed");
+    } finally {
+      setLoadingId(null);
     }
   };
 
   /*
-    ACTIONS BASED ON STATUS
+    Only hiring-phase actions allowed
   */
   const renderActions = (app) => {
 
-    const status = app.status;
-
-    if (["completed", "rejected", "withdrawn", "terminated"].includes(status)) {
-      return <span className="badge locked">No actions</span>;
-    }
-
-    switch (status) {
+    switch (app.status) {
 
       case "applied":
         return (
           <>
-            <button onClick={() => updateStatus(app._id, "shortlisted")}>
+            <button
+              onClick={() => updateStatus(app._id, "shortlisted")}
+              disabled={loadingId === app._id}
+            >
               Shortlist
             </button>
-            <button onClick={() => updateStatus(app._id, "rejected")}>
+
+            <button
+              onClick={() => updateStatus(app._id, "rejected")}
+              disabled={loadingId === app._id}
+              className="danger"
+            >
               Reject
             </button>
           </>
@@ -54,36 +72,47 @@ export default function InternshipApplicants() {
       case "shortlisted":
         return (
           <>
-            <button onClick={() => updateStatus(app._id, "selected")}>
+            <button
+              onClick={() => updateStatus(app._id, "selected")}
+              disabled={loadingId === app._id}
+            >
               Select
             </button>
-            <button onClick={() => updateStatus(app._id, "rejected")}>
+
+            <button
+              onClick={() => updateStatus(app._id, "rejected")}
+              disabled={loadingId === app._id}
+              className="danger"
+            >
               Reject
             </button>
           </>
         );
 
       case "selected":
-        return <span className="badge info">Waiting for student</span>;
+        return (
+          <span className="badge info">
+            Waiting for student acceptance
+          </span>
+        );
 
       case "offer_accepted":
-        return (
-          <button onClick={() => updateStatus(app._id, "ongoing")}>
-            Start Internship
-          </button>
-        );
+        return <span className="badge success">Offer Accepted</span>;
+
+      case "rejected":
+        return <span className="badge danger">Rejected</span>;
+
+      case "withdrawn":
+        return <span className="badge muted">Withdrawn</span>;
 
       case "ongoing":
-        return (
-          <>
-            <button onClick={() => updateStatus(app._id, "completed")}>
-              Complete
-            </button>
-            <button onClick={() => updateStatus(app._id, "terminated")}>
-              Terminate
-            </button>
-          </>
-        );
+        return <span className="badge info">Internship Ongoing</span>;
+
+      case "completed":
+        return <span className="badge success">Completed</span>;
+
+      case "terminated":
+        return <span className="badge danger">Terminated</span>;
 
       default:
         return null;
@@ -94,6 +123,10 @@ export default function InternshipApplicants() {
     <div className="container">
 
       <h2>Applicants</h2>
+
+      {data.length === 0 && (
+        <p>No applications found.</p>
+      )}
 
       {data.map(app => {
 
@@ -111,21 +144,25 @@ export default function InternshipApplicants() {
             </p>
 
             <p><b>Email:</b> {s.email}</p>
-
             <p><b>Phone:</b> {s.phoneNo}</p>
 
             <p>
-              <b>Skills:</b> {app.skillsSnapshot?.join(", ")}
+              <b>Skills:</b>{" "}
+              {app.skillsSnapshot?.length
+                ? app.skillsSnapshot.join(", ")
+                : "—"}
             </p>
 
             {app.resumeSnapshot && (
-              <a
-                href={app.resumeSnapshot}
-                target="_blank"
-                rel="noreferrer"
-              >
-                View Resume
-              </a>
+              <p>
+                <a
+                  href={app.resumeSnapshot}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  View Resume
+                </a>
+              </p>
             )}
 
             <p className="status">
@@ -139,6 +176,7 @@ export default function InternshipApplicants() {
           </div>
         );
       })}
+
     </div>
   );
 }

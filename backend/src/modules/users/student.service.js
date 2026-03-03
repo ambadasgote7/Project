@@ -5,10 +5,29 @@ import {uploadToCloudinary} from "../../utils/uploadToCloudinary.js";
 // =============================
 // GET PROFILE
 // =============================
+// =============================
+// GET PROFILE (STUDENT)
+// =============================
 export const getStudentProfileService = async (userId) => {
 
   const profile = await StudentProfile
     .findOne({ user: userId })
+    .select(`
+      fullName
+      phoneNo
+      skills
+      bio
+      resumeUrl
+      prn
+      abcId
+      Year
+      courseName
+      specialization
+      courseStartYear
+      courseEndYear
+      status
+      profileStatus
+    `)
     .populate({
       path: "college",
       select: "name"
@@ -22,7 +41,6 @@ export const getStudentProfileService = async (userId) => {
 };
 
 
-
 // =============================
 // UPDATE PROFILE (STUDENT SELF)
 // =============================
@@ -34,44 +52,49 @@ export const updateStudentProfileService = async (userId, body, file) => {
     throw new Error("Student profile not found");
   }
 
+  // =============================
+  // SAFE FIELD UPDATES
+  // =============================
 
-  // 🔒 Strict whitelist (text fields only)
-  const allowedFields = [
-    "fullName",
-    "phoneNo",
-    "skills",
-    "bio"
-  ];
+  if (body.phoneNo !== undefined) {
+    profile.phoneNo = body.phoneNo;
+  }
 
+  if (body.bio !== undefined) {
+    profile.bio = body.bio;
+  }
 
-  allowedFields.forEach((field) => {
-    if (body[field] !== undefined) {
-      profile[field] = body[field];
+  // 🔥 FIX SKILLS HERE
+  if (body.skills !== undefined) {
+    try {
+      // If coming from multipart, it's string
+      profile.skills =
+        typeof body.skills === "string"
+          ? JSON.parse(body.skills)
+          : body.skills;
+    } catch {
+      profile.skills = [];
     }
-  });
-
+  }
 
   // =============================
-  // Resume Upload (NEW)
+  // Resume Upload
   // =============================
   if (file) {
-
     const upload = await uploadToCloudinary(
       file,
       "student-resumes"
     );
-
     profile.resumeUrl = upload.secure_url;
   }
-
 
   // =============================
   // Profile Completion Logic
   // =============================
   const requiredFields = [
-    profile.fullName,
     profile.phoneNo,
-    profile.resumeUrl
+    profile.resumeUrl,
+    profile.abcId
   ];
 
   const isComplete = requiredFields.every(Boolean);
@@ -80,7 +103,6 @@ export const updateStudentProfileService = async (userId, body, file) => {
     profile.profileStatus = "completed";
     profile.profileCompletedAt = new Date();
   }
-
 
   await profile.save();
 

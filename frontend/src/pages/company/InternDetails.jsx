@@ -13,7 +13,7 @@ export default function InternDetails() {
   const [loading, setLoading] = useState(false);
 
   /*
-    FETCH
+    FETCH DATA
   */
   const fetchData = async () => {
     try {
@@ -25,7 +25,7 @@ export default function InternDetails() {
       setMentors(mentorRes.data.data || []);
 
     } catch (err) {
-      alert(err.response?.data?.message);
+      alert(err.response?.data?.message || "Failed to load data");
     }
   };
 
@@ -35,29 +35,31 @@ export default function InternDetails() {
 
   /*
     ASSIGN MENTOR
+    Only allowed in offer_accepted
   */
   const assignMentor = async (mentorId) => {
 
     if (!mentorId) return;
 
+    if (data.status !== "offer_accepted") {
+      alert("Mentor can only be assigned before internship starts.");
+      return;
+    }
+
     try {
 
       setLoading(true);
 
-      await API.patch(`/company/${id}/assign-mentor`, {
+      await API.patch(`/applications/${id}/assign-mentor`, {
         mentorId
       });
 
       await fetchData();
 
     } catch (err) {
-
-      alert(err.response?.data?.message);
-
+      alert(err.response?.data?.message || "Mentor assignment failed");
     } finally {
-
       setLoading(false);
-
     }
   };
 
@@ -65,14 +67,18 @@ export default function InternDetails() {
 
   const s = data.studentSnapshot || {};
 
-  const mentorLocked =
-    ["completed", "terminated", "rejected"].includes(data.status);
+  /*
+    Mentor locked for everything except offer_accepted
+  */
+  const mentorLocked = data.status !== "offer_accepted";
 
   const statusColor = (status) => {
     switch (status) {
+      case "offer_accepted": return "#2563eb";
       case "ongoing": return "#7c3aed";
       case "completed": return "#16a34a";
       case "terminated": return "#dc2626";
+      case "rejected": return "#dc2626";
       default: return "#2563eb";
     }
   };
@@ -113,15 +119,17 @@ export default function InternDetails() {
 
         </div>
 
-        {/* VIEW PROGRESS BUTTON */}
-        <button
-          className="progress-btn"
-          onClick={() =>
-            navigate(`/company/interns/${id}/progress`)
-          }
-        >
-          View Internship Progress
-        </button>
+        {/* PROGRESS BUTTON ONLY IF STARTED */}
+        {["ongoing", "completed", "terminated"].includes(data.status) && (
+          <button
+            className="progress-btn"
+            onClick={() =>
+              navigate(`/company/interns/${id}/progress`)
+            }
+          >
+            View Internship Progress
+          </button>
+        )}
 
         <hr />
 
@@ -144,7 +152,7 @@ export default function InternDetails() {
 
         {mentorLocked && (
           <p className="locked-msg">
-            Mentor assignment locked for this status
+            Mentor assignment locked after internship starts
           </p>
         )}
 

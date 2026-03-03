@@ -1,4 +1,4 @@
-import { applyInternshipService, getApplicationByIdService, getApplicationsForInternshipService, getMyApplicationsService, offerDecisionService, updateApplicationStatusService } from "./application.service.js";
+import { applyInternshipService, getApplicationByIdService, getApplicationsForInternshipService, getMyApplicationsService, offerDecisionService, updateApplicationStatusService, withdrawApplicationService } from "./application.service.js";
 
 export const applyInternship = async (req, res) => {
   try {

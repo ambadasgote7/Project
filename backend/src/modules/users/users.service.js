@@ -55,11 +55,11 @@ const inviteOneStudent = async (body, creator, session) => {
     specialization,
     courseStartYear,
     courseEndYear,
-    academicYear
+    Year
   } = body;
 
-  if (!email || !fullName || !academicYear) {
-    throw new Error("Email, full name and academic year required");
+  if (!email || !fullName || !Year) {
+    throw new Error("Email, full name and Year required");
   }
 
   const collegeId = await resolveCollegeId(creator, session);
@@ -116,7 +116,7 @@ const inviteOneStudent = async (body, creator, session) => {
           specialization,
           courseStartYear,
           courseEndYear,
-          academicYear,
+          Year,
           status: "active",
           profileStatus: "pending",
           createdBy: creator._id
@@ -138,7 +138,7 @@ const inviteOneStudent = async (body, creator, session) => {
       studentProfile.specialization = specialization;
       studentProfile.courseStartYear = courseStartYear;
       studentProfile.courseEndYear = courseEndYear;
-      studentProfile.academicYear = academicYear;
+      studentProfile.Year = Year;
       studentProfile.status = "active";
 
       await studentProfile.save({ session });
@@ -176,7 +176,7 @@ const inviteOneStudent = async (body, creator, session) => {
         specialization,
         courseStartYear,
         courseEndYear,
-        academicYear,
+        Year,
         status: "active",
         profileStatus: "pending",
         createdBy: creator._id
@@ -201,7 +201,7 @@ const inviteOneStudent = async (body, creator, session) => {
       courseName,
       specialization,
       startDate: new Date(),
-      academicYear,
+      Year,
       status: "active",
       addedBy: creator._id
     }],
@@ -727,7 +727,6 @@ export const getSetupDataService = async (token) => {
 ====================================================== */
 
 export const setupAccountService = async ({ body, files }) => {
-
   const { token, password } = body;
 
   if (!token || !password) {
@@ -749,7 +748,6 @@ export const setupAccountService = async ({ body, files }) => {
 
   if (!profileData) profileData = {};
 
-
   // =============================
   // Verify token
   // =============================
@@ -767,12 +765,10 @@ export const setupAccountService = async ({ body, files }) => {
     throw new Error("Invalid or expired setup link");
   }
 
-
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-
     // =============================
     // Update User
     // =============================
@@ -783,7 +779,6 @@ export const setupAccountService = async ({ body, files }) => {
     user.isVerified = true;
 
     await user.save({ session });
-
 
     /* =====================================================
        STUDENT
@@ -797,8 +792,26 @@ export const setupAccountService = async ({ body, files }) => {
 
       if (!profile) throw new Error("Student profile not found");
 
+      // -----------------------------
+      // ABC ID (MANDATORY)
+      // -----------------------------
+      if (!profileData.abcId) {
+        throw new Error("ABC ID is required");
+      }
 
-      // PRN (lock only if provided)
+      if (!/^\d{12}$/.test(profileData.abcId)) {
+        throw new Error("ABC ID must be a 12-digit number");
+      }
+
+      if (profile.abcId) {
+        throw new Error("ABC ID already set and cannot be changed");
+      }
+
+      profile.abcId = profileData.abcId;
+
+      // -----------------------------
+      // PRN (lock once provided)
+      // -----------------------------
       if (profileData.prn) {
         profile.prn = profileData.prn;
         profile.prnLocked = true;
@@ -807,7 +820,6 @@ export const setupAccountService = async ({ body, files }) => {
       profile.phoneNo = profileData.phoneNo || profile.phoneNo;
       profile.skills = profileData.skills || [];
       profile.bio = profileData.bio || "";
-
 
       // Resume Upload
       if (files?.resume?.[0]) {
@@ -818,7 +830,6 @@ export const setupAccountService = async ({ body, files }) => {
         profile.resumeUrl = upload.secure_url;
       }
 
-
       // College ID Upload
       if (files?.collegeIdCard?.[0]) {
         const upload = await uploadToCloudinary(
@@ -828,13 +839,11 @@ export const setupAccountService = async ({ body, files }) => {
         profile.collegeIdCardUrl = upload.secure_url;
       }
 
-
       profile.profileStatus = "completed";
       profile.profileCompletedAt = new Date();
 
       await profile.save({ session });
     }
-
 
     /* =====================================================
        FACULTY
@@ -857,7 +866,6 @@ export const setupAccountService = async ({ body, files }) => {
       await profile.save({ session });
     }
 
-
     /* =====================================================
        MENTOR
     ===================================================== */
@@ -879,7 +887,6 @@ export const setupAccountService = async ({ body, files }) => {
       await profile.save({ session });
     }
 
-
     await session.commitTransaction();
 
     return {
@@ -888,10 +895,8 @@ export const setupAccountService = async ({ body, files }) => {
     };
 
   } catch (err) {
-
     await session.abortTransaction();
     throw err;
-
   } finally {
     session.endSession();
   }

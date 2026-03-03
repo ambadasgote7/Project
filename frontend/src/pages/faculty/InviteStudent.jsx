@@ -23,7 +23,7 @@ export default function InviteStudent() {
     specialization: "",
     courseStartYear: "",
     courseEndYear: "",
-    academicYear: "",
+    Year: "",
   });
 
   const [mode, setMode] = useState("count");
@@ -64,7 +64,7 @@ export default function InviteStudent() {
   const selectedCourse = courses.find((c) => c.name === form.courseName);
   const duration = selectedCourse?.duration || 4;
 
-  const academicYearOptions = Array.from({ length: duration }, (_, i) => i + 1);
+  const YearOptions = Array.from({ length: duration }, (_, i) => i + 1);
 
   // ================= VALIDATION =================
 
@@ -170,7 +170,7 @@ export default function InviteStudent() {
       specialization: "",
       courseStartYear: "",
       courseEndYear: "",
-      academicYear: "",
+      Year: "",
     }));
     setSpecializations(selected?.specializations || []);
   };
@@ -243,7 +243,7 @@ export default function InviteStudent() {
   // ================= SUBMIT =================
 
   const submitBulk = async () => {
-    const academicYear = parseInt(form.academicYear, 10);
+    const Year = parseInt(form.Year, 10);
     const courseStartYear = parseInt(form.courseStartYear, 10);
     const courseEndYear = parseInt(form.courseEndYear, 10);
 
@@ -255,7 +255,7 @@ export default function InviteStudent() {
       alert("Please select a course start year");
       return;
     }
-    if (!academicYear || isNaN(academicYear) || academicYear <= 0) {
+    if (!Year || isNaN(Year) || Year <= 0) {
       alert("Please select an academic year");
       return;
     }
@@ -276,7 +276,7 @@ export default function InviteStudent() {
         specialization: form.specialization || undefined,
         courseStartYear,
         courseEndYear,
-        academicYear,
+        Year,
       }));
 
       setProgress({
@@ -492,15 +492,15 @@ export default function InviteStudent() {
 
         <select
           style={styles.select}
-          value={form.academicYear}
+          value={form.Year}
           onChange={(e) =>
-            setForm((prev) => ({ ...prev, academicYear: e.target.value }))
+            setForm((prev) => ({ ...prev, Year: e.target.value }))
           }
         >
-          <option value="">Academic Year</option>
-          {academicYearOptions.map((y) => (
+          <option value="">Year</option>
+          {YearOptions.map((y) => (
             <option key={y} value={y}>
-              {y} Year
+              {y}
             </option>
           ))}
         </select>

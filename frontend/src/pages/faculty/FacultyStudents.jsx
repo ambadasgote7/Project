@@ -4,6 +4,9 @@ import "../../styles/facultyStudents.css";
 
 export default function FacultyStudents() {
 
+  const COURSE_DURATION = 4;
+  const CURRENT_YEAR = new Date().getFullYear();
+
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -11,23 +14,31 @@ export default function FacultyStudents() {
   const [editMode, setEditMode] = useState(false);
 
   const [editForm, setEditForm] = useState({
+    courseStartYear: "",
+    courseEndYear: "",
+    Year: "",
     prn: "",
-    courseName: "",
-    specialization: "",
-    phoneNo: ""
+    abcId: "",
+    status: "active"
   });
 
   const [saving, setSaving] = useState(false);
-
 
   useEffect(() => {
     fetchStudents();
   }, []);
 
+  useEffect(() => {
+    if (editForm.courseStartYear) {
+      const endYear =
+        Number(editForm.courseStartYear) + COURSE_DURATION;
 
-  // =============================
-  // FETCH
-  // =============================
+      setEditForm(prev => ({
+        ...prev,
+        courseEndYear: endYear
+      }));
+    }
+  }, [editForm.courseStartYear]);
 
   const fetchStudents = async () => {
     try {
@@ -40,52 +51,62 @@ export default function FacultyStudents() {
     }
   };
 
-
-  // =============================
-  // VIEW
-  // =============================
-
   const openView = (student) => {
     setSelected(student);
     setEditMode(false);
   };
 
-
-  // =============================
-  // EDIT
-  // =============================
-
   const openEdit = (student) => {
-
     setSelected(student);
     setEditMode(true);
 
     setEditForm({
+      courseStartYear: student.courseStartYear || "",
+      courseEndYear: student.courseEndYear || "",
+      Year: student.Year || "",
       prn: student.prn || "",
-      courseName: student.courseName || "",
-      specialization: student.specialization || "",
-      phoneNo: student.phoneNo || ""
+      abcId: student.abcId || "",
+      status: student.status || "active"
     });
   };
-
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setEditForm(prev => ({ ...prev, [name]: value }));
   };
 
-
   const handleUpdate = async () => {
 
     if (!selected) return;
+
+    // Frontend ABC validation
+    if (editForm.abcId && !/^\d{12}$/.test(editForm.abcId)) {
+      alert("ABC ID must be exactly 12 digits");
+      return;
+    }
 
     setSaving(true);
 
     try {
 
+      const payload = {
+        courseStartYear: editForm.courseStartYear
+          ? Number(editForm.courseStartYear)
+          : undefined,
+        courseEndYear: editForm.courseEndYear
+          ? Number(editForm.courseEndYear)
+          : undefined,
+        Year: editForm.Year
+          ? Number(editForm.Year)
+          : undefined,
+        prn: editForm.prn || undefined,
+        abcId: editForm.abcId || undefined,
+        status: editForm.status
+      };
+
       await API.patch(
         `/faculty/students/${selected._id}`,
-        editForm
+        payload
       );
 
       await fetchStudents();
@@ -93,17 +114,15 @@ export default function FacultyStudents() {
 
     } catch (err) {
       console.error(err);
-      alert("Update failed");
+      alert(err?.response?.data?.message || "Update failed");
     } finally {
       setSaving(false);
     }
   };
 
-
   if (loading) {
     return <div className="fs-page">Loading students...</div>;
   }
-
 
   return (
     <div className="fs-page">
@@ -117,29 +136,29 @@ export default function FacultyStudents() {
         ) : (
 
           <table className="fs-table">
-
             <thead>
               <tr>
                 <th>Name</th>
                 <th>Course</th>
                 <th>Specialization</th>
                 <th>PRN</th>
+                <th>Year</th>
+                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
 
             <tbody>
-
               {students.map(s => (
                 <tr key={s._id}>
-
                   <td>{s.fullName}</td>
                   <td>{s.courseName || "—"}</td>
                   <td>{s.specialization || "—"}</td>
                   <td>{s.prn || "—"}</td>
+                  <td>{s.Year || "—"}</td>
+                  <td>{s.status}</td>
 
                   <td>
-
                     <button
                       className="fs-btn-view"
                       onClick={() => openView(s)}
@@ -153,48 +172,33 @@ export default function FacultyStudents() {
                     >
                       Edit
                     </button>
-
                   </td>
-
                 </tr>
               ))}
-
             </tbody>
-
           </table>
         )}
 
       </div>
 
-
-      {/* ================= VIEW MODAL ================= */}
-
+      {/* VIEW MODAL */}
       {selected && !editMode && (
-
         <div className="fs-modal">
           <div className="fs-modal-content">
 
             <h3>{selected.fullName}</h3>
 
             <div className="fs-info">
-
               <p><b>Email:</b> {selected.user?.email}</p>
               <p><b>Course:</b> {selected.courseName}</p>
               <p><b>Specialization:</b> {selected.specialization}</p>
+              <p><b>Course Start:</b> {selected.courseStartYear}</p>
+              <p><b>Course End:</b> {selected.courseEndYear}</p>
+              <p><b>Year:</b> {selected.Year}</p>
               <p><b>PRN:</b> {selected.prn || "—"}</p>
-
+              <p><b>ABC ID:</b> {selected.abcId || "—"}</p>
+              <p><b>Status:</b> {selected.status}</p>
             </div>
-
-
-            {/* FUTURE READY */}
-
-            <div className="fs-section">
-              <h4>Internship Progress</h4>
-              <p className="fs-placeholder">
-                Internship applications, mentor logs, credits will appear here.
-              </p>
-            </div>
-
 
             <div className="fs-modal-actions">
               <button onClick={() => setSelected(null)}>
@@ -206,15 +210,45 @@ export default function FacultyStudents() {
         </div>
       )}
 
-
-      {/* ================= EDIT MODAL ================= */}
-
+      {/* EDIT MODAL */}
       {selected && editMode && (
-
         <div className="fs-modal">
           <div className="fs-modal-content">
 
-            <h3>Edit Student</h3>
+            <h3>Edit Student (Academic Only)</h3>
+
+            <select
+              name="courseStartYear"
+              value={editForm.courseStartYear}
+              onChange={handleChange}
+            >
+              <option value="">Select Start Year</option>
+              {Array.from({ length: 10 }, (_, i) => CURRENT_YEAR - 5 + i)
+                .map(year => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
+            </select>
+
+            <select
+              name="Year"
+              value={editForm.Year}
+              onChange={handleChange}
+            >
+              <option value="">Select Year</option>
+              {[...Array(COURSE_DURATION)].map((_, i) => (
+                <option key={i + 1} value={i + 1}>
+                  {i + 1}
+                </option>
+              ))}
+            </select>
+
+            <input
+              name="courseEndYear"
+              value={editForm.courseEndYear}
+              readOnly
+            />
 
             <input
               name="prn"
@@ -224,26 +258,22 @@ export default function FacultyStudents() {
             />
 
             <input
-              name="courseName"
-              value={editForm.courseName}
+              name="abcId"
+              value={editForm.abcId}
               onChange={handleChange}
-              placeholder="Course"
+              placeholder="ABC ID (12 digits)"
             />
 
-            <input
-              name="specialization"
-              value={editForm.specialization}
+            <select
+              name="status"
+              value={editForm.status}
               onChange={handleChange}
-              placeholder="Specialization"
-            />
-
-            <input
-              name="phoneNo"
-              value={editForm.phoneNo}
-              onChange={handleChange}
-              placeholder="Phone"
-            />
-
+            >
+              <option value="active">Active</option>
+              <option value="graduated">Graduated</option>
+              <option value="inactive">Inactive</option>
+              <option value="unassigned">Unassigned</option>
+            </select>
 
             <div className="fs-modal-actions">
 

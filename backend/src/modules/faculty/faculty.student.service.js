@@ -7,18 +7,31 @@ import StudentProfile from "../../models/StudentProfile.js";
 
 export const getFacultyStudentsService = async (user) => {
 
-  const faculty = user.referenceId;
+  const facultyId = user.referenceId;
 
-  const facultyProfile = await StudentProfile.db
-    .model("FacultyProfile")
-    .findById(faculty);
+  const FacultyProfile = StudentProfile.db.model("FacultyProfile");
+
+  const facultyProfile = await FacultyProfile.findById(facultyId);
+
+  if (!facultyProfile) {
+    throw new Error("Faculty profile not found");
+  }
 
   const students = await StudentProfile.find({
     college: facultyProfile.college,
-    courseName: facultyProfile.courseName,
-    specialization: facultyProfile.department,
     status: "active"
   })
+    .select(`
+      fullName
+      prn
+      abcId
+      courseName
+      specialization
+      courseStartYear
+      courseEndYear
+      Year
+      status
+    `)
     .populate("user", "email")
     .lean();
 
@@ -37,17 +50,56 @@ export const updateFacultyStudentService = async (
   body
 ) => {
 
-  const student = await StudentProfile.findById(studentId);
+  const facultyId = user.referenceId;
 
-  if (!student) throw new Error("Student not found");
+  const FacultyProfile = StudentProfile.db.model("FacultyProfile");
 
-  const allowed = ["prn", "phoneNo", "skills", "bio"];
+  const facultyProfile = await FacultyProfile.findById(facultyId);
 
-  allowed.forEach(field => {
+  if (!facultyProfile) {
+    throw new Error("Faculty profile not found");
+  }
+
+  // Ensure student belongs to same college
+  const student = await StudentProfile.findOne({
+    _id: studentId,
+    college: facultyProfile.college
+  });
+
+  if (!student) {
+    throw new Error("Student not found in your college");
+  }
+
+  // Academic fields
+  const academicFields = [
+    "courseName",
+    "specialization",
+    "courseStartYear",
+    "courseEndYear",
+    "Year",
+    "status"
+  ];
+
+  academicFields.forEach(field => {
     if (body[field] !== undefined) {
       student[field] = body[field];
     }
   });
+
+  // PRN correction allowed
+  if (body.prn !== undefined) {
+    student.prn = body.prn;
+  }
+
+  // ABC correction allowed with validation
+  if (body.abcId !== undefined) {
+
+    if (!/^\d{12}$/.test(body.abcId)) {
+      throw new Error("ABC ID must be 12 digits");
+    }
+
+    student.abcId = body.abcId;
+  }
 
   await student.save();
 

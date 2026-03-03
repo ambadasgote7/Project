@@ -13,17 +13,19 @@ export default function CollegeStudents() {
   const [editForm, setEditForm] = useState({
     courseName: "",
     specialization: "",
+    courseStartYear: "",
+    courseEndYear: "",
+    Year: "",
     prn: "",
-    phoneNo: ""
+    abcId: "",
+    status: "active"
   });
 
   const [saving, setSaving] = useState(false);
 
-
   useEffect(() => {
     fetchStudents();
   }, []);
-
 
   const fetchStudents = async () => {
     try {
@@ -36,7 +38,6 @@ export default function CollegeStudents() {
     }
   };
 
-
   // =============================
   // VIEW
   // =============================
@@ -46,71 +47,62 @@ export default function CollegeStudents() {
     setEditMode(false);
   };
 
-
   // =============================
   // EDIT
   // =============================
 
   const openEdit = (student) => {
-
     setSelected(student);
     setEditMode(true);
 
     setEditForm({
       courseName: student.courseName || "",
       specialization: student.specialization || "",
+      courseStartYear: student.courseStartYear || "",
+      courseEndYear: student.courseEndYear || "",
+      Year: student.Year || "",
       prn: student.prn || "",
-      phoneNo: student.phoneNo || ""
+      abcId: student.abcId || "",
+      status: student.status || "active"
     });
   };
-
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setEditForm(prev => ({ ...prev, [name]: value }));
   };
 
-
   const handleUpdate = async () => {
-
     if (!selected) return;
 
     setSaving(true);
 
     try {
-
       await API.patch(
         `/college/students/${selected._id}`,
         editForm
       );
 
       await fetchStudents();
-
       setSelected(null);
 
     } catch (err) {
       console.error(err);
-      alert("Update failed");
+      alert(err?.response?.data?.message || "Update failed");
     } finally {
       setSaving(false);
     }
   };
-
 
   // =============================
   // REMOVE
   // =============================
 
   const handleRemove = async (id) => {
-
-    const ok = window.confirm(
-      "Remove student from college?"
-    );
-
+    const ok = window.confirm("Remove student from college?");
     if (!ok) return;
 
     try {
-
       await API.delete(`/college/students/${id}`);
 
       setStudents(prev =>
@@ -123,11 +115,9 @@ export default function CollegeStudents() {
     }
   };
 
-
   if (loading) {
     return <div className="cs-page">Loading...</div>;
   }
-
 
   return (
     <div className="cs-page">
@@ -137,29 +127,28 @@ export default function CollegeStudents() {
         <h2>College Students</h2>
 
         <table className="cs-table">
-
           <thead>
             <tr>
               <th>Name</th>
               <th>Course</th>
               <th>Specialization</th>
               <th>PRN</th>
+              <th>Academic Year</th>
+              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
 
           <tbody>
-
             {students.map(s => (
               <tr key={s._id}>
-
                 <td>{s.fullName}</td>
                 <td>{s.courseName || "—"}</td>
                 <td>{s.specialization || "—"}</td>
                 <td>{s.prn || "—"}</td>
-
+                <td>{s.Year || "—"}</td>
+                <td>{s.status}</td>
                 <td>
-
                   <button
                     className="cs-btn-view"
                     onClick={() => openView(s)}
@@ -180,77 +169,57 @@ export default function CollegeStudents() {
                   >
                     Remove
                   </button>
-
                 </td>
-
               </tr>
             ))}
-
           </tbody>
-
         </table>
 
       </div>
 
-
       {/* ================= VIEW MODAL ================= */}
 
       {selected && !editMode && (
-
         <div className="cs-modal">
           <div className="cs-modal-content">
 
             <h3>{selected.fullName}</h3>
 
             <div className="cs-info">
-
               <p><b>Email:</b> {selected.user?.email}</p>
               <p><b>Course:</b> {selected.courseName}</p>
               <p><b>Specialization:</b> {selected.specialization}</p>
+              <p><b>Course Start:</b> {selected.courseStartYear}</p>
+              <p><b>Course End:</b> {selected.courseEndYear}</p>
+              <p><b>Academic Year:</b> {selected.Year}</p>
               <p><b>PRN:</b> {selected.prn || "—"}</p>
-
+              <p><b>ABC ID:</b> {selected.abcId || "—"}</p>
+              <p><b>Status:</b> {selected.status}</p>
             </div>
-
-
-            {/* FUTURE READY SECTION */}
-
-            <div className="cs-section">
-
-              <h4>Internship Applications</h4>
-              <p className="cs-placeholder">
-                Coming soon — applied internships, status, credits
-              </p>
-
-            </div>
-
 
             <div className="cs-modal-actions">
-
               <button onClick={() => setSelected(null)}>
                 Close
               </button>
-
             </div>
 
           </div>
         </div>
       )}
 
-
       {/* ================= EDIT MODAL ================= */}
 
       {selected && editMode && (
-
         <div className="cs-modal">
           <div className="cs-modal-content">
 
-            <h3>Edit Student</h3>
+            <h3>Edit Student (Academic Only)</h3>
 
             <input
               name="courseName"
               value={editForm.courseName}
               onChange={handleChange}
-              placeholder="Course"
+              placeholder="Course Name"
             />
 
             <input
@@ -261,6 +230,30 @@ export default function CollegeStudents() {
             />
 
             <input
+              name="courseStartYear"
+              type="number"
+              value={editForm.courseStartYear}
+              onChange={handleChange}
+              placeholder="Course Start Year"
+            />
+
+            <input
+              name="courseEndYear"
+              type="number"
+              value={editForm.courseEndYear}
+              onChange={handleChange}
+              placeholder="Course End Year"
+            />
+
+            <input
+              name="Year"
+              type="number"
+              value={editForm.Year}
+              onChange={handleChange}
+              placeholder="Academic Year"
+            />
+
+            <input
               name="prn"
               value={editForm.prn}
               onChange={handleChange}
@@ -268,11 +261,22 @@ export default function CollegeStudents() {
             />
 
             <input
-              name="phoneNo"
-              value={editForm.phoneNo}
+              name="abcId"
+              value={editForm.abcId}
               onChange={handleChange}
-              placeholder="Phone"
+              placeholder="ABC ID (12 digits)"
             />
+
+            <select
+              name="status"
+              value={editForm.status}
+              onChange={handleChange}
+            >
+              <option value="active">Active</option>
+              <option value="graduated">Graduated</option>
+              <option value="inactive">Inactive</option>
+              <option value="unassigned">Unassigned</option>
+            </select>
 
             <div className="cs-modal-actions">
 

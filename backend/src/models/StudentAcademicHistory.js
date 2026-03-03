@@ -29,7 +29,7 @@ const studentAcademicHistorySchema = new mongoose.Schema(
       default: null
     },
 
-    academicYear: {
+   Year: {
       type: Number,
       required: true,
       min: 1,
